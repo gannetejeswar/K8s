@@ -2,9 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: student-app
-
+  namespace: student-management
+  labels:
+    app: student-app
 spec:
-  replicas: 1
+  replicas: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
 
   selector:
     matchLabels:
@@ -18,18 +26,54 @@ spec:
     spec:
       containers:
       - name: student-app
-
         image: gannetejeswarnaidu/student-management-springboot:latest
+        imagePullPolicy: Always
 
         ports:
         - containerPort: 8080
 
         env:
         - name: SPRING_DATASOURCE_URL
-          value: jdbc:mysql://mysql:3306/studentdb?createDatabaseIfNotExist=true
+          valueFrom:
+            configMapKeyRef:
+              name: student-config
+              key: SPRING_DATASOURCE_URL
 
         - name: SPRING_DATASOURCE_USERNAME
-          value: root
+          valueFrom:
+            secretKeyRef:
+              name: student-secret
+              key: DB_USERNAME
 
         - name: SPRING_DATASOURCE_PASSWORD
-          value: root
+          valueFrom:
+            secretKeyRef:
+              name: student-secret
+              key: DB_PASSWORD
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
